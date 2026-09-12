@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="001-create-managers" author="lab1">
+        <createTable tableName="managers">
+            <column name="id" type="int" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="full_name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="contracts_count" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="002-seed-managers" author="lab1">
+        <insert tableName="managers">
+            <column name="full_name" value="Иван Петров"/>
+            <column name="contracts_count" valueNumeric="12"/>
+        </insert>
+        <insert tableName="managers">
+            <column name="full_name" value="Анна Сидорова"/>
+            <column name="contracts_count" valueNumeric="7"/>
+        </insert>
+        <insert tableName="managers">
+            <column name="full_name" value="Павел Кузнецов"/>
+            <column name="contracts_count" valueNumeric="21"/>
+        </insert>
+        <insert tableName="managers">
+            <column name="full_name" value="Мария Волкова"/>
+            <column name="contracts_count" valueNumeric="3"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>
