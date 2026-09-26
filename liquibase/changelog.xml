@@ -5,7 +5,7 @@
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
         https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <changeSet id="001-create-managers" author="lab1">
+    <changeSet id="001-create-managers" author="iryabov">
         <createTable tableName="managers">
             <column name="id" type="int" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
@@ -19,7 +19,7 @@
         </createTable>
     </changeSet>
 
-    <changeSet id="002-seed-managers" author="lab1">
+    <changeSet id="002-seed-managers" author="iryabov">
         <insert tableName="managers">
             <column name="full_name" value="Иван Петров"/>
             <column name="contracts_count" valueNumeric="12"/>
