@@ -9,5 +9,4 @@ public interface IManagerService
     Task<ManagerResponseDto> Hire(CreateManagerDto dto);
     Task<ManagerResponseDto?> UpdateContracts(int id, UpdateContractsDto dto);
     Task<bool> Fire(int id);
-    Task<List<ManagerResponseDto>> Report();
 }

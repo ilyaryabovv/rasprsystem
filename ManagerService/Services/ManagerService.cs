@@ -66,15 +66,6 @@ public class ManagerService : IManagerService
         return true;
     }
 
-    public async Task<List<ManagerResponseDto>> Report()
-    {
-        var managers = await _db.Managers
-            .OrderByDescending(m => m.ContractsCount)
-            .ToListAsync();
-
-        return managers.Select(ToDto).ToList();
-    }
-
     private static ManagerResponseDto ToDto(Manager manager) =>
         new(manager.Id, manager.FullName, manager.ContractsCount);
 }

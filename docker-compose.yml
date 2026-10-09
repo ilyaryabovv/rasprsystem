@@ -35,14 +35,41 @@ services:
       - app-network
 
   api:
-    build: .
+    build:
+      context: ./ManagerService
+      dockerfile: Dockerfile
     depends_on:
       liquibase:
         condition: service_completed_successfully
+    environment:
+      ConnectionStrings__Default: Host=db;Port=5432;Database=managers;Username=postgres;Password=postgres
+    networks:
+      - app-network
+
+  reports:
+    build:
+      context: ./ReportService
+      dockerfile: Dockerfile
+    depends_on:
+      liquibase:
+        condition: service_completed_successfully
+    environment:
+      ConnectionStrings__Default: Host=db;Port=5432;Database=managers;Username=postgres;Password=postgres
+    networks:
+      - app-network
+
+  gateway:
+    build:
+      context: ./Gateway
+      dockerfile: Dockerfile
+    depends_on:
+      - api
+      - reports
     ports:
       - "8080:8080"
     environment:
-      ConnectionStrings__Default: Host=db;Port=5432;Database=managers;Username=postgres;Password=postgres
+      ReverseProxy__Clusters__managers__Destinations__d1__Address: http://api:8080/
+      ReverseProxy__Clusters__reports__Destinations__d1__Address: http://reports:8080/
     networks:
       - app-network
 

@@ -48,10 +48,4 @@ public class ManagerController : ControllerBase
         var deleted = await _managerService.Fire(id);
         return deleted ? NoContent() : NotFound();
     }
-
-    [HttpGet("report")]
-    public async Task<ActionResult<List<ManagerResponseDto>>> Report()
-    {
-        return await _managerService.Report();
-    }
 }
