@@ -1,3 +1,4 @@
+using ManagerService.Clients;
 using ManagerService.Dto;
 using ManagerService.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -9,16 +10,31 @@ namespace ManagerService.Controllers;
 public class ManagerController : ControllerBase
 {
     private readonly IManagerService _managerService;
+    private readonly IReportClient _reportClient;
 
-    public ManagerController(IManagerService managerService)
+    public ManagerController(IManagerService managerService, IReportClient reportClient)
     {
         _managerService = managerService;
+        _reportClient = reportClient;
     }
 
     [HttpGet]
     public async Task<ActionResult<List<ManagerResponseDto>>> GetAll()
     {
         return await _managerService.GetAll();
+    }
+
+    [HttpGet("report")]
+    public async Task<ActionResult<List<ReportItemDto>>> Report()
+    {
+        try
+        {
+            return await _reportClient.GetReport();
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway);
+        }
     }
 
     [HttpGet("{id:int}")]

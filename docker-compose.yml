@@ -34,6 +34,44 @@ services:
     networks:
       - app-network
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - app-network
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.15.3
+    environment:
+      LS_JAVA_OPTS: -Xms256m -Xmx256m
+      xpack.monitoring.enabled: "false"
+    volumes:
+      - ./elk/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    depends_on:
+      - elasticsearch
+    networks:
+      - app-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      XPACK_SECURITY_ENABLED: "false"
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: a7a6311933d3503b89bc2dbc36572c33
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - app-network
+
   api:
     build:
       context: ./ManagerService
@@ -41,8 +79,12 @@ services:
     depends_on:
       liquibase:
         condition: service_completed_successfully
+      reports:
+        condition: service_started
     environment:
       ConnectionStrings__Default: Host=db;Port=5432;Database=managers;Username=postgres;Password=postgres
+      ReportService__BaseUrl: http://reports:8080
+      Logstash__Url: http://logstash:8080
     networks:
       - app-network
 
@@ -55,6 +97,7 @@ services:
         condition: service_completed_successfully
     environment:
       ConnectionStrings__Default: Host=db;Port=5432;Database=managers;Username=postgres;Password=postgres
+      Logstash__Url: http://logstash:8080
     networks:
       - app-network
 
@@ -64,12 +107,10 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - api
-      - reports
     ports:
       - "8080:8080"
     environment:
       ReverseProxy__Clusters__managers__Destinations__d1__Address: http://api:8080/
-      ReverseProxy__Clusters__reports__Destinations__d1__Address: http://reports:8080/
     networks:
       - app-network
 
@@ -79,3 +120,4 @@ networks:
 
 volumes:
   pgdata:
+  esdata:
