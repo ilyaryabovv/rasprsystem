@@ -38,6 +38,17 @@ builder.Services.AddHttpClient<IReportClient, ReportClient>(client =>
 {
     client.BaseAddress = new Uri(reportUrl);
 });
+
+var fileUrl = builder.Configuration["FileService:BaseUrl"] ?? "http://localhost:5085";
+if (!fileUrl.EndsWith('/'))
+{
+    fileUrl += "/";
+}
+
+builder.Services.AddHttpClient<IFileClient, FileClient>(client =>
+{
+    client.BaseAddress = new Uri(fileUrl);
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {

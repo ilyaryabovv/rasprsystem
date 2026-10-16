@@ -11,11 +11,13 @@ public class ManagerController : ControllerBase
 {
     private readonly IManagerService _managerService;
     private readonly IReportClient _reportClient;
+    private readonly IFileClient _fileClient;
 
-    public ManagerController(IManagerService managerService, IReportClient reportClient)
+    public ManagerController(IManagerService managerService, IReportClient reportClient, IFileClient fileClient)
     {
         _managerService = managerService;
         _reportClient = reportClient;
+        _fileClient = fileClient;
     }
 
     [HttpGet]
@@ -30,6 +32,35 @@ public class ManagerController : ControllerBase
         try
         {
             return await _reportClient.GetReport();
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway);
+        }
+    }
+
+    [HttpPost("report/export")]
+    public async Task<ActionResult<StoredFileDto>> ExportReport()
+    {
+        try
+        {
+            var report = await _reportClient.GetReport();
+            var fileName = $"report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
+            return await _fileClient.Save(ReportCsv.Build(report), fileName);
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway);
+        }
+    }
+
+    [HttpGet("report/export/{name}")]
+    public async Task<IActionResult> DownloadReport(string name)
+    {
+        try
+        {
+            var content = await _fileClient.Download(name);
+            return content is null ? NotFound() : File(content, "text/csv", name);
         }
         catch (HttpRequestException)
         {

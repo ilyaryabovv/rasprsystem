@@ -72,6 +72,34 @@ services:
     networks:
       - app-network
 
+  silo:
+    image: pgsty/silo:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: siloadmin
+      MINIO_ROOT_PASSWORD: silo-admin-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - silodata:/data
+    networks:
+      - app-network
+
+  files:
+    build:
+      context: ./FileService
+      dockerfile: Dockerfile
+    depends_on:
+      - silo
+    environment:
+      Silo__Endpoint: http://silo:9000
+      Silo__AccessKey: siloadmin
+      Silo__SecretKey: silo-admin-secret
+      Silo__Bucket: reports
+    networks:
+      - app-network
+
   api:
     build:
       context: ./ManagerService
@@ -81,9 +109,12 @@ services:
         condition: service_completed_successfully
       reports:
         condition: service_started
+      files:
+        condition: service_started
     environment:
       ConnectionStrings__Default: Host=db;Port=5432;Database=managers;Username=postgres;Password=postgres
       ReportService__BaseUrl: http://reports:8080
+      FileService__BaseUrl: http://files:8080
       Logstash__Url: http://logstash:8080
     networks:
       - app-network
@@ -121,3 +152,4 @@ networks:
 volumes:
   pgdata:
   esdata:
+  silodata:
