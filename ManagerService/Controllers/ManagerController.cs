@@ -11,12 +11,18 @@ public class ManagerController : ControllerBase
 {
     private readonly IManagerService _managerService;
     private readonly IReportClient _reportClient;
+    private readonly IReportPublisher _publisher;
     private readonly IFileClient _fileClient;
 
-    public ManagerController(IManagerService managerService, IReportClient reportClient, IFileClient fileClient)
+    public ManagerController(
+        IManagerService managerService,
+        IReportClient reportClient,
+        IReportPublisher publisher,
+        IFileClient fileClient)
     {
         _managerService = managerService;
         _reportClient = reportClient;
+        _publisher = publisher;
         _fileClient = fileClient;
     }
 
@@ -46,7 +52,8 @@ public class ManagerController : ControllerBase
         {
             var report = await _reportClient.GetReport();
             var fileName = $"report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
-            return await _fileClient.Save(ReportCsv.Build(report), fileName);
+            await _publisher.Publish(ReportCsv.Build(report), fileName);
+            return new StoredFileDto(fileName);
         }
         catch (HttpRequestException)
         {

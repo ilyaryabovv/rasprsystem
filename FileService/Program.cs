@@ -1,10 +1,13 @@
+using FileService.Queue;
 using FileService.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.Configure<SiloOptions>(builder.Configuration.GetSection("Silo"));
+builder.Services.Configure<RabbitOptions>(builder.Configuration.GetSection("RabbitMq"));
 builder.Services.AddSingleton<IFileStorage, SiloStorage>();
+builder.Services.AddHostedService<ReportFileConsumer>();
 
 var app = builder.Build();
 

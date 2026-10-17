@@ -86,17 +86,40 @@ services:
     networks:
       - app-network
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    environment:
+      RABBITMQ_DEFAULT_USER: rabbit
+      RABBITMQ_DEFAULT_PASS: rabbit
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
   files:
     build:
       context: ./FileService
       dockerfile: Dockerfile
     depends_on:
-      - silo
+      silo:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
     environment:
       Silo__Endpoint: http://silo:9000
       Silo__AccessKey: siloadmin
       Silo__SecretKey: silo-admin-secret
       Silo__Bucket: reports
+      RabbitMq__Host: rabbitmq
+      RabbitMq__User: rabbit
+      RabbitMq__Password: rabbit
+      RabbitMq__Queue: report-files
     networks:
       - app-network
 
@@ -111,11 +134,17 @@ services:
         condition: service_started
       files:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     environment:
       ConnectionStrings__Default: Host=db;Port=5432;Database=managers;Username=postgres;Password=postgres
       ReportService__BaseUrl: http://reports:8080
       FileService__BaseUrl: http://files:8080
       Logstash__Url: http://logstash:8080
+      RabbitMq__Host: rabbitmq
+      RabbitMq__User: rabbit
+      RabbitMq__Password: rabbit
+      RabbitMq__Queue: report-files
     networks:
       - app-network
 

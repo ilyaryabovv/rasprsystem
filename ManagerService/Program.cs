@@ -2,6 +2,7 @@ using ManagerService.Clients;
 using ManagerService.Data;
 using ManagerService.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Serilog;
 using ManagerSvc = ManagerService.Services.ManagerService;
 
@@ -49,6 +50,11 @@ builder.Services.AddHttpClient<IFileClient, FileClient>(client =>
 {
     client.BaseAddress = new Uri(fileUrl);
 });
+builder.Services.Configure<RabbitOptions>(builder.Configuration.GetSection("RabbitMq"));
+builder.Services.AddSingleton<IReportPublisher>(sp =>
+    ReportPublisher.Connect(
+        sp.GetRequiredService<IOptions<RabbitOptions>>().Value,
+        sp.GetRequiredService<ILogger<ReportPublisher>>()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -57,6 +63,7 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+app.Services.GetRequiredService<IReportPublisher>();
 app.UseSerilogRequestLogging();
 app.UseSwagger();
 app.UseSwaggerUI();

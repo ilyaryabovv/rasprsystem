@@ -1,4 +1,3 @@
-using FileService.Dto;
 using FileService.Storage;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,20 +12,6 @@ public class FilesController : ControllerBase
     public FilesController(IFileStorage storage)
     {
         _storage = storage;
-    }
-
-    [HttpPost]
-    [RequestSizeLimit(10_000_000)]
-    public async Task<ActionResult<StoredFileDto>> Upload(IFormFile file)
-    {
-        if (file.Length == 0 || !IsSafeName(file.FileName))
-        {
-            return BadRequest();
-        }
-
-        await using var stream = file.OpenReadStream();
-        await _storage.Save(file.FileName, stream);
-        return new StoredFileDto(file.FileName);
     }
 
     [HttpGet("{name}")]
