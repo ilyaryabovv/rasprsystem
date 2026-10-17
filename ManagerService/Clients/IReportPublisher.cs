@@ -2,5 +2,5 @@ namespace ManagerService.Clients;
 
 public interface IReportPublisher
 {
-    Task Publish(byte[] csv, string fileName);
+    Task Publish(Guid sagaId, byte[] csv, string fileName);
 }

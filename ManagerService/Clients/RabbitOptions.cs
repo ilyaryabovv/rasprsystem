@@ -6,4 +6,5 @@ public class RabbitOptions
     public string User { get; set; } = "rabbit";
     public string Password { get; set; } = "rabbit";
     public string Queue { get; set; } = "report-files";
+    public string ResultQueue { get; set; } = "report-saga";
 }

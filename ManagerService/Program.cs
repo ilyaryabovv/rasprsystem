@@ -1,5 +1,7 @@
 using ManagerService.Clients;
 using ManagerService.Data;
+using ManagerService.Discovery;
+using ManagerService.Saga;
 using ManagerService.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -46,24 +48,40 @@ if (!fileUrl.EndsWith('/'))
     fileUrl += "/";
 }
 
-builder.Services.AddHttpClient<IFileClient, FileClient>(client =>
+builder.Services.AddSingleton(new FileInstanceRegistry(fileUrl));
+builder.Services.AddHttpClient<IFileClient, FileClient>();
+if (!string.IsNullOrWhiteSpace(builder.Configuration["Discovery:ServiceName"]))
 {
-    client.BaseAddress = new Uri(fileUrl);
-});
+    builder.Services.AddHostedService<FileDestinationDiscoveryService>();
+}
 builder.Services.Configure<RabbitOptions>(builder.Configuration.GetSection("RabbitMq"));
+builder.Services.AddScoped<ExportSagaService>();
 builder.Services.AddSingleton<IReportPublisher>(sp =>
     ReportPublisher.Connect(
         sp.GetRequiredService<IOptions<RabbitOptions>>().Value,
         sp.GetRequiredService<ILogger<ReportPublisher>>()));
+builder.Services.AddHostedService<ReportSagaConsumer>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new() { Title = "Manager Service", Version = "v1" });
 });
 
+var instanceName = string.IsNullOrWhiteSpace(builder.Configuration["Instance:Name"])
+    ? Environment.MachineName
+    : builder.Configuration["Instance:Name"]!;
 var app = builder.Build();
 
 app.Services.GetRequiredService<IReportPublisher>();
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers["X-Instance"] = instanceName;
+        return Task.CompletedTask;
+    });
+    await next();
+});
 app.UseSerilogRequestLogging();
 app.UseSwagger();
 app.UseSwaggerUI();

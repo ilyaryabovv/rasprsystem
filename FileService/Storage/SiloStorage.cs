@@ -43,6 +43,17 @@ public class SiloStorage : IFileStorage
         });
     }
 
+    public async Task Delete(string name)
+    {
+        try
+        {
+            await _s3.DeleteObjectAsync(_bucket, name);
+        }
+        catch (AmazonS3Exception exception) when (exception.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+        }
+    }
+
     public async Task<byte[]?> Read(string name)
     {
         try

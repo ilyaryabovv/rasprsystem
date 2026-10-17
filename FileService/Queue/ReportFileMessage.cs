@@ -1,3 +1,3 @@
 namespace FileService.Queue;
 
-public record ReportFileMessage(string FileName, string Content);
+public record ReportFileMessage(Guid SagaId, string FileName, string Content);

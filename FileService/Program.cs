@@ -25,5 +25,16 @@ for (var attempt = 1; ; attempt++)
     }
 }
 
+var instanceName = Environment.MachineName;
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers["X-Instance"] = instanceName;
+        return Task.CompletedTask;
+    });
+    await next();
+});
+
 app.MapControllers();
 app.Run();

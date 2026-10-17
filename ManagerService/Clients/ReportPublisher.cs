@@ -35,6 +35,7 @@ public sealed class ReportPublisher : IReportPublisher, IDisposable
                 var connection = factory.CreateConnection();
                 var channel = connection.CreateModel();
                 channel.QueueDeclare(settings.Queue, durable: true, exclusive: false, autoDelete: false, arguments: null);
+                channel.QueueDeclare(settings.ResultQueue, durable: true, exclusive: false, autoDelete: false, arguments: null);
                 logger.LogInformation("Connected to RabbitMQ queue {Queue}", settings.Queue);
                 return new ReportPublisher(connection, channel, settings.Queue, logger);
             }
@@ -46,9 +47,9 @@ public sealed class ReportPublisher : IReportPublisher, IDisposable
         }
     }
 
-    public Task Publish(byte[] csv, string fileName)
+    public Task Publish(Guid sagaId, byte[] csv, string fileName)
     {
-        var body = JsonSerializer.SerializeToUtf8Bytes(new ReportFileMessage(fileName, Convert.ToBase64String(csv)));
+        var body = JsonSerializer.SerializeToUtf8Bytes(new ReportFileMessage(sagaId, fileName, Convert.ToBase64String(csv)));
         lock (_gate)
         {
             var properties = _channel.CreateBasicProperties();
@@ -56,7 +57,7 @@ public sealed class ReportPublisher : IReportPublisher, IDisposable
             _channel.BasicPublish(exchange: "", routingKey: _queue, basicProperties: properties, body: body);
         }
 
-        _logger.LogInformation("Published report file {FileName} to queue {Queue}", fileName, _queue);
+        _logger.LogInformation("Published saga {SagaId} file {FileName} to queue {Queue}", sagaId, fileName, _queue);
         return Task.CompletedTask;
     }
 

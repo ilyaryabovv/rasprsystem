@@ -36,6 +36,7 @@ public class ReportFileConsumer : BackgroundService
                 using var connection = factory.CreateConnection();
                 using var channel = connection.CreateModel();
                 channel.QueueDeclare(_settings.Queue, durable: true, exclusive: false, autoDelete: false, arguments: null);
+                channel.QueueDeclare(_settings.ResultQueue, durable: true, exclusive: false, autoDelete: false, arguments: null);
                 channel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
 
                 var gate = new SemaphoreSlim(1, 1);
@@ -45,7 +46,7 @@ public class ReportFileConsumer : BackgroundService
                     await gate.WaitAsync(stoppingToken);
                     try
                     {
-                        await Handle(delivery.Body);
+                        await Handle(channel, delivery.Body);
                         channel.BasicAck(delivery.DeliveryTag, multiple: false);
                     }
                     catch (Exception exception)
@@ -79,7 +80,7 @@ public class ReportFileConsumer : BackgroundService
         }
     }
 
-    private async Task Handle(ReadOnlyMemory<byte> body)
+    private async Task Handle(IModel channel, ReadOnlyMemory<byte> body)
     {
         ReportFileMessage? message;
         try
@@ -92,26 +93,41 @@ public class ReportFileConsumer : BackgroundService
             return;
         }
 
-        if (message is null || !IsSafeName(message.FileName))
+        if (message is null || message.SagaId == Guid.Empty)
         {
-            _logger.LogWarning("Skipped report message with an invalid file name");
+            _logger.LogWarning("Skipped report message without a saga id");
             return;
         }
 
-        byte[] bytes;
+        var instance = Environment.MachineName;
+        if (!IsSafeName(message.FileName))
+        {
+            Publish(channel, new ReportSagaResult(message.SagaId, message.FileName, "Failed", instance));
+            return;
+        }
+
         try
         {
-            bytes = Convert.FromBase64String(message.Content);
+            var bytes = Convert.FromBase64String(message.Content);
+            await using var stream = new MemoryStream(bytes);
+            await _storage.Save(message.FileName, stream);
+            Publish(channel, new ReportSagaResult(message.SagaId, message.FileName, "Completed", instance));
+            _logger.LogInformation("Saga {SagaId} stored file {FileName}", message.SagaId, message.FileName);
         }
-        catch (FormatException)
+        catch (Exception exception)
         {
-            _logger.LogWarning("Skipped report message with invalid content");
-            return;
+            _logger.LogWarning(exception, "Saga {SagaId} failed, compensating {FileName}", message.SagaId, message.FileName);
+            await _storage.Delete(message.FileName);
+            Publish(channel, new ReportSagaResult(message.SagaId, message.FileName, "Failed", instance));
         }
+    }
 
-        await using var stream = new MemoryStream(bytes);
-        await _storage.Save(message.FileName, stream);
-        _logger.LogInformation("Stored report file {FileName}", message.FileName);
+    private void Publish(IModel channel, ReportSagaResult result)
+    {
+        var body = JsonSerializer.SerializeToUtf8Bytes(result);
+        var properties = channel.CreateBasicProperties();
+        properties.Persistent = true;
+        channel.BasicPublish(exchange: "", routingKey: _settings.ResultQueue, basicProperties: properties, body: body);
     }
 
     private static bool IsSafeName(string name)

@@ -2,5 +2,5 @@ namespace ManagerService.Clients;
 
 public interface IFileClient
 {
-    Task<byte[]?> Download(string fileName);
+    Task<(byte[]? Content, string? Instance)> Download(string fileName);
 }
