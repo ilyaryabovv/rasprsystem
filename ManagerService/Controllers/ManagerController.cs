@@ -1,4 +1,5 @@
 using ManagerService.Clients;
+using ManagerService.Discovery;
 using ManagerService.Dto;
 using ManagerService.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -12,12 +13,18 @@ public class ManagerController : ControllerBase
     private readonly IManagerService _managerService;
     private readonly IReportClient _reportClient;
     private readonly IFileClient _fileClient;
+    private readonly FileInstanceRegistry _fileInstances;
 
-    public ManagerController(IManagerService managerService, IReportClient reportClient, IFileClient fileClient)
+    public ManagerController(
+        IManagerService managerService,
+        IReportClient reportClient,
+        IFileClient fileClient,
+        FileInstanceRegistry fileInstances)
     {
         _managerService = managerService;
         _reportClient = reportClient;
         _fileClient = fileClient;
+        _fileInstances = fileInstances;
     }
 
     [HttpGet]
@@ -46,7 +53,9 @@ public class ManagerController : ControllerBase
         {
             var report = await _reportClient.GetReport();
             var fileName = $"report-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
-            return await _fileClient.Save(ReportCsv.Build(report), fileName);
+            var (stored, instance) = await _fileClient.Save(ReportCsv.Build(report), fileName);
+            SetInstance(instance);
+            return stored;
         }
         catch (HttpRequestException)
         {
@@ -59,13 +68,20 @@ public class ManagerController : ControllerBase
     {
         try
         {
-            var content = await _fileClient.Download(name);
+            var (content, instance) = await _fileClient.Download(name);
+            SetInstance(instance);
             return content is null ? NotFound() : File(content, "text/csv", name);
         }
         catch (HttpRequestException)
         {
             return StatusCode(StatusCodes.Status502BadGateway);
         }
+    }
+
+    [HttpGet("files/destinations")]
+    public ActionResult<IReadOnlyList<string>> FileDestinations()
+    {
+        return Ok(_fileInstances.Addresses);
     }
 
     [HttpGet("{id:int}")]
@@ -94,5 +110,13 @@ public class ManagerController : ControllerBase
     {
         var deleted = await _managerService.Fire(id);
         return deleted ? NoContent() : NotFound();
+    }
+
+    private void SetInstance(string? instance)
+    {
+        if (!string.IsNullOrWhiteSpace(instance))
+        {
+            Response.Headers["X-File-Instance"] = instance;
+        }
     }
 }

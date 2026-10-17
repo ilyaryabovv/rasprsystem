@@ -1,5 +1,6 @@
 using ManagerService.Clients;
 using ManagerService.Data;
+using ManagerService.Discovery;
 using ManagerService.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -45,17 +46,32 @@ if (!fileUrl.EndsWith('/'))
     fileUrl += "/";
 }
 
-builder.Services.AddHttpClient<IFileClient, FileClient>(client =>
+builder.Services.AddSingleton(new FileInstanceRegistry(fileUrl));
+builder.Services.AddHttpClient<IFileClient, FileClient>();
+if (!string.IsNullOrWhiteSpace(builder.Configuration["Discovery:ServiceName"]))
 {
-    client.BaseAddress = new Uri(fileUrl);
-});
+    builder.Services.AddHostedService<FileDestinationDiscoveryService>();
+}
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new() { Title = "Manager Service", Version = "v1" });
 });
 
+var instanceName = string.IsNullOrWhiteSpace(builder.Configuration["Instance:Name"])
+    ? Environment.MachineName
+    : builder.Configuration["Instance:Name"]!;
 var app = builder.Build();
+
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers["X-Instance"] = instanceName;
+        return Task.CompletedTask;
+    });
+    await next();
+});
 
 app.UseSerilogRequestLogging();
 app.UseSwagger();
