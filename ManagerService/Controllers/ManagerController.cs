@@ -82,6 +82,26 @@ public class ManagerController : ControllerBase
         return ToDto(saga);
     }
 
+    [HttpGet("report/file/{name}")]
+    public async Task<ActionResult<List<ReportItemDto>>> ReportFromStorage(string name)
+    {
+        try
+        {
+            var future = ReportFileFuture.Start(_fileClient.Download(name));
+            var report = await future;
+            if (!string.IsNullOrWhiteSpace(report.Instance))
+            {
+                Response.Headers["X-File-Instance"] = report.Instance;
+            }
+
+            return report.Items is null ? NotFound() : report.Items;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or AggregateException)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway);
+        }
+    }
+
     [HttpGet("report/export/saga/{id:guid}")]
     public async Task<ActionResult<ExportSagaDto>> GetSaga(Guid id)
     {
