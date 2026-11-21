@@ -1,8 +1,15 @@
+using System.Diagnostics;
 using FileService.Queue;
 using FileService.Storage;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddConsoleExporter());
 builder.Services.AddControllers();
 builder.Services.Configure<SiloOptions>(builder.Configuration.GetSection("Silo"));
 builder.Services.Configure<RabbitOptions>(builder.Configuration.GetSection("RabbitMq"));
@@ -36,5 +43,16 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.Use(async (context, next) =>
+{
+    var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Request");
+    await next();
+    logger.LogInformation(
+        "HTTP {Method} {Path} responded {StatusCode} trace {TraceId}",
+        context.Request.Method,
+        context.Request.Path,
+        context.Response.StatusCode,
+        Activity.Current?.TraceId.ToString());
+});
 app.MapControllers();
 app.Run();

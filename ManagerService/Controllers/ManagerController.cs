@@ -4,11 +4,13 @@ using ManagerService.Dto;
 using ManagerService.Models;
 using ManagerService.Saga;
 using ManagerService.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ManagerService.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class ManagerController : ControllerBase
 {

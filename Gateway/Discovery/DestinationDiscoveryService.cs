@@ -13,6 +13,13 @@ public class DestinationDiscoveryService : BackgroundService
         Match = new RouteMatch { Path = "/api/Manager/{**catch-all}" }
     };
 
+    private static readonly RouteConfig AuthRoute = new()
+    {
+        RouteId = "auth",
+        ClusterId = "managers",
+        Match = new RouteMatch { Path = "/api/auth/{**catch-all}" }
+    };
+
     private readonly InMemoryConfigProvider _config;
     private readonly string _serviceName;
     private readonly ILogger<DestinationDiscoveryService> _logger;
@@ -51,7 +58,7 @@ public class DestinationDiscoveryService : BackgroundService
                         ip => new DestinationConfig { Address = $"http://{ip}:8080/" });
 
                     _config.Update(
-                        [ManagersRoute],
+                        [ManagersRoute, AuthRoute],
                         [new ClusterConfig
                         {
                             ClusterId = "managers",

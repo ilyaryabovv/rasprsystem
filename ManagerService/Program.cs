@@ -1,10 +1,17 @@
+using System.Diagnostics;
+using System.Text;
+using ManagerService.Auth;
 using ManagerService.Clients;
 using ManagerService.Data;
 using ManagerService.Discovery;
+using ManagerService.Logging;
 using ManagerService.Saga;
 using ManagerService.Services.Interfaces;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Trace;
 using Serilog;
 using ManagerSvc = ManagerService.Services.ManagerService;
 
@@ -16,8 +23,9 @@ builder.Host.UseSerilog((context, logger) =>
         .MinimumLevel.Information()
         .MinimumLevel.Override("Microsoft.AspNetCore", Serilog.Events.LogEventLevel.Warning)
         .Enrich.FromLogContext()
+        .Enrich.With<TraceEnricher>()
         .Enrich.WithProperty("Service", "manager")
-        .WriteTo.Console();
+        .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Service} {TraceId} {Message:lj}{NewLine}{Exception}");
 
     var logstashUrl = context.Configuration["Logstash:Url"];
     if (!string.IsNullOrWhiteSpace(logstashUrl))
@@ -26,6 +34,30 @@ builder.Host.UseSerilog((context, logger) =>
     }
 });
 
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddConsoleExporter());
+
+var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
+builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.AddSingleton<TokenService>();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwt.Issuer,
+            ValidAudience = jwt.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key))
+        };
+    });
+builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
@@ -82,7 +114,23 @@ app.Use(async (context, next) =>
     });
     await next();
 });
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        var traceId = Activity.Current?.TraceId.ToString();
+        if (!string.IsNullOrEmpty(traceId))
+        {
+            context.Response.Headers["X-Trace-Id"] = traceId;
+        }
+
+        return Task.CompletedTask;
+    });
+    await next();
+});
 app.UseSerilogRequestLogging();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.MapControllers();
