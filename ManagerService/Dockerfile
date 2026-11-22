@@ -1,9 +1,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY ManagerService.csproj .
-RUN dotnet restore
-COPY . .
-RUN dotnet publish -c Release -o /app --no-restore
+COPY Sorting/Sorting.csproj Sorting/
+COPY ManagerService/ManagerService.csproj ManagerService/
+RUN dotnet restore ManagerService/ManagerService.csproj
+COPY Sorting/ Sorting/
+COPY ManagerService/ ManagerService/
+RUN dotnet publish ManagerService/ManagerService.csproj -c Release -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app

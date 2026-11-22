@@ -5,6 +5,7 @@ using ManagerService.Models;
 using ManagerService.Saga;
 using ManagerService.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Sorting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ManagerService.Controllers;
@@ -41,6 +42,27 @@ public class ManagerController : ControllerBase
     public async Task<ActionResult<List<ManagerResponseDto>>> GetAll()
     {
         return await _managerService.GetAll();
+    }
+
+    [HttpGet("sorted")]
+    public async Task<ActionResult<SortedManagersDto>> Sorted([FromQuery] int threads = 1)
+    {
+        if (threads < 1)
+        {
+            return BadRequest();
+        }
+
+        var managers = await _managerService.GetAll();
+        var result = ParallelMergeSort.Sort(
+            managers,
+            threads,
+            Comparer<ManagerResponseDto>.Create((left, right) => left.Id.CompareTo(right.Id)));
+        var levels = result.Levels
+            .Select(level => new SortLevelDto(
+                level.Threads,
+                level.Runs.Select(run => run.Select(manager => manager.Id).ToList()).ToList()))
+            .ToList();
+        return new SortedManagersDto(result.Threads, result.ElapsedMilliseconds, result.Items.ToList(), levels);
     }
 
     [HttpGet("report")]

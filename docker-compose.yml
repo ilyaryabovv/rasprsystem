@@ -126,8 +126,8 @@ services:
 
   api:
     build:
-      context: ./ManagerService
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ManagerService/Dockerfile
     depends_on:
       liquibase:
         condition: service_completed_successfully
